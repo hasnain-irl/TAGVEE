@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Admin Dashboard - Tagvee</title>
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+<header class="navbar">
+
+    <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+        <a href="/logout" class="btn btn-secondary">
+            Logout
+        </a>
+
+    </div>
+
+</header>
+
+
+<div class="container">
+
+<div class="dashboard-hero">
+
+<h1>Admin Dashboard</h1>
+
+<p>
+Manage users, monitor QR scans and system alerts.
+</p>
+
+</div>
+
+
+<form action="/search-user" class="search-bar">
+
+<input
+type="text"
+name="q"
+placeholder="Search by Name, Email or Vehicle Number">
+
+<button
+class="btn btn-primary">
+
+Search
+
+</button>
+
+</form>
+
+
+<div class="stats-grid">
+
+<div class="stat-card">
+
+<h3>{{ total_users }}</h3>
+
+<p>Total Users</p>
+
+</div>
+
+
+<div class="stat-card">
+
+<h3>{{ total_contacts }}</h3>
+
+<p>Emergency Contacts</p>
+
+</div>
+
+
+<div class="stat-card">
+
+<h3>{{ total_alerts }}</h3>
+
+<p>Total Alerts</p>
+
+</div>
+
+
+<div class="stat-card">
+
+<h3>{{ total_scans }}</h3>
+
+<p>QR Scans</p>
+
+</div>
+
+</div>
+
+
+<div class="dashboard-card">
+
+<h2>
+
+Registered Users
+
+</h2>
+
+<br>
+
+<table>
+
+<tr>
+
+<th>ID</th>
+
+<th>Name</th>
+
+<th>Email</th>
+
+<th>Vehicle</th>
+
+<th>Actions</th>
+
+</tr>
+
+{% for user in users %}
+
+<tr>
+
+<td>{{ user.id }}</td>
+
+<td>{{ user.name }}</td>
+
+<td>{{ user.email }}</td>
+
+<td>{{ user.vehicle_number }}</td>
+
+<td>
+
+<a href="/admin-user/{{ user.id }}"
+class="btn btn-view btn-sm">
+
+View
+
+</a>
+
+<a href="/admin-alerts/{{ user.id }}"
+class="btn btn-alert btn-sm">
+
+Alerts
+
+</a>
+
+<a href="/admin-scans/{{ user.id }}"
+class="btn btn-scan btn-sm">
+
+Scans
+
+</a>
+
+<form action="/delete-user/{{ user.id }}" method="POST" style="display:inline;">
+
+<button type="submit"
+class="btn btn-delete btn-sm"
+onclick="return confirm('Delete this user permanently?')">
+
+Delete
+
+</button>
+
+</form>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+</div>
+
+</div>
+
+</body>
+
+</html>

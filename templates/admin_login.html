@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Admin Login - Tagvee</title>
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+<header class="navbar">
+
+    <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+        <a href="/" class="btn btn-secondary">
+            Home
+        </a>
+
+    </div>
+
+</header>
+
+
+<section class="auth-container">
+
+<div class="auth-card">
+
+<h1>Administrator Login</h1>
+
+<p>
+
+Authorized personnel only.
+
+</p>
+
+<form method="POST">
+
+<label>Username</label>
+
+<input
+type="text"
+name="username"
+placeholder="Enter username"
+required>
+
+<label>Password</label>
+
+<input
+type="password"
+name="password"
+placeholder="Enter password"
+required>
+
+<button
+class="btn btn-primary auth-btn"
+type="submit">
+
+Login
+
+</button>
+
+</form>
+
+</div>
+
+</section>
+
+</body>
+</html>

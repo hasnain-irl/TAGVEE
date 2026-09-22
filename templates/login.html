@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+        <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Login - Tagvee</title>
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+<body>
+
+    <!-- NAVBAR -->
+
+    <header class="navbar">
+
+        <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+        </div>
+
+    </header>
+
+    <!-- LOGIN CARD -->
+
+    <div class="auth-container">
+
+        <div class="auth-card">
+
+            <h1>Welcome Back</h1>
+
+            <p>
+                Login to access your vehicle dashboard,
+                QR code, alerts and emergency contacts.
+            </p>
+
+            <form method="POST">
+
+                <label>Email Address</label>
+
+                <input
+                    type="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    required
+                >
+
+                <label>Password</label>
+
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Enter your password"
+                    required
+                >
+
+                <button
+                    type="submit"
+                    class="btn btn-primary auth-btn">
+
+                    Login
+
+                </button>
+
+            </form>
+
+            <div class="auth-footer">
+
+                <p>
+                    Don't have an account?
+                </p>
+
+                <a href="/register">
+                    Create Account
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+        <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Register - Tagvee</title>
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+<body>
+
+    <!-- NAVBAR -->
+
+    <header class="navbar">
+
+        <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+        </div>
+
+    </header>
+
+    <!-- REGISTER CARD -->
+
+    <div class="auth-container">
+
+        <div class="auth-card">
+
+            <h1>Create Account</h1>
+
+            <p>
+                Register your vehicle and generate a
+                secure QR code for emergency response
+                and public assistance.
+            </p>
+
+            <form method="POST">
+
+                <label>Full Name</label>
+
+                <input
+                    type="text"
+                    name="name"
+                    placeholder="Enter your full name"
+                    required
+                >
+
+                <label>Email Address</label>
+
+                <input
+                    type="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    required
+                >
+
+                <label>Phone Number</label>
+
+                <input
+                    type="text"
+                    name="phone"
+                    placeholder="03XXXXXXXXX"
+                    required
+                >
+
+                <label>Vehicle Number</label>
+
+                <input
+                    type="text"
+                    name="vehicle_number"
+                    placeholder="ABC-123"
+                    required
+                >
+
+                <label>Vehicle Type</label>
+
+                <select
+                    name="vehicle_type"
+                    required
+                >
+
+                    <option value="">
+                        Select Vehicle Type
+                    </option>
+
+                    <option>Motorcycle</option>
+                    <option>Car</option>
+                    <option>SUV</option>
+                    <option>Van</option>
+                    <option>Truck</option>
+                    <option>Bus</option>
+                    <option>Other</option>
+
+                </select>
+
+                <label>Password</label>
+
+                <input
+                    type="password"
+                    name="password"
+                    placeholder="Create password"
+                    required
+                >
+
+                <button
+                    type="submit"
+                    class="btn btn-primary auth-btn">
+
+                    Create Account
+
+                </button>
+
+            </form>
+
+            <div class="auth-footer">
+
+                <p>
+                    Already have an account?
+                </p>
+
+                <a href="/login">
+                    Login Here
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+</html>

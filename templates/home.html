@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+        <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Tagvee</title>
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+<body>
+
+    <!-- HEADER -->
+
+    <header class="navbar">
+
+        <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+            <div class="nav-links">
+
+                <a href="/register">
+                    Register
+                </a>
+
+                <a href="/login">
+                    Login
+                </a>
+
+            </div>
+
+        </div>
+
+    </header>
+
+    <!-- HERO -->
+
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <h1>
+                Smart Vehicle Contact &
+                Emergency Response System
+            </h1>
+
+            <p>
+                Tagvee helps vehicle owners stay connected
+                through secure QR technology. In emergencies,
+                accidents, blocked parking situations, or
+                vehicle issues, anyone can scan the QR code
+                and instantly reach the right person.
+            </p>
+
+            <a href="/register" class="btn btn-primary">
+                Register Now
+            </a>
+
+            <a href="/login" class="btn btn-secondary">
+                Login
+            </a>
+
+        </div>
+
+    </section>
+
+    <!-- HOW IT WORKS -->
+
+    <section class="container">
+
+        <div class="card">
+
+            <h2>How Tagvee Works</h2>
+
+            <br>
+
+        <p>
+            Getting started with Tagvee takes only a few
+            minutes. Register your vehicle, add your
+            emergency contact information, and generate
+            your personal QR code.
+        </p>
+        <br>
+        <p>
+            Place the QR code on your vehicle. In any
+            emergency or public assistance situation,
+            anyone can scan it and instantly access safe
+            communication options without revealing your
+            private information.
+        </p>
+
+        </div>
+
+    </section>
+
+    <br><br>
+
+    <!-- FEATURES -->
+
+    <section class="container">
+
+        <div class="card">
+
+            <h2>Why Choose Tagvee?</h2>
+
+            <br>
+
+
+        <p>
+            Traditional vehicle identification methods
+            often fail during emergencies. Tagvee provides
+            a modern solution that enables quick
+            communication between vehicle owners,
+            emergency responders, and the public.
+        </p>
+        <br>
+        <p>
+            From parking issues to road accidents, every
+            second matters. Our system helps bridge the
+            communication gap when it matters most.
+        </p>
+
+        </div>
+
+    </section>
+
+    <br><br>
+
+    <!-- FOOTER -->
+
+    <footer class="tagvee-footer">
+
+        <h3>TAGVEE</h3>
+
+        <p>
+            Smart Vehicle Contact &
+            Emergency Response Platform
+        </p>
+
+        <br>
+
+        <p>
+            Contact:
+            tagveeofficial@gmail.com
+        </p>
+
+        <br>
+
+        <p>
+            © 2026 Tagvee. All Rights Reserved.
+        </p>
+
+    </footer>
+
+</body>
+</html>

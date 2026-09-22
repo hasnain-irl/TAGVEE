@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Contact - Tagvee</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<header class="navbar">
+    <div class="container nav-content">
+        <a href="/" class="logo-link"><img src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}" alt="TAGVEE" class="logo-image"></a>
+        <nav class="nav-links"><a href="/login">Login</a><a href="/register" class="nav-register">Register</a></nav>
+    </div>
+</header>
+<main class="public-page">
+<div class="container">
+{% if contact %}
+<section class="public-card emergency-contact-card">
+    <h1>👥 Emergency Contact</h1>
+    <p>If the vehicle owner cannot be reached, send a predefined emergency alert to their trusted contact.</p>
+
+    {% if request.args.get('sent') %}
+    <p class="privacy-note">✅ Emergency alert sent successfully.</p>
+    {% endif %}
+
+    <div class="contact-info">
+        <span class="contact-label">Contact Name</span>
+        <strong>{{ contact.contact_name }}</strong>
+    </div>
+    <div class="contact-info">
+        <span class="contact-label">Relationship</span>
+        <strong>{{ contact.relationship }}</strong>
+    </div>
+
+    <p><strong>Select the situation:</strong></p>
+
+    <form action="/send-emergency-contact-alert/{{ user_id }}/owner_not_responding" method="POST">
+        <button type="submit" class="public-btn btn-primary">📵 Owner is not responding</button>
+    </form>
+    <form action="/send-emergency-contact-alert/{{ user_id }}/emergency_situation" method="POST">
+        <button type="submit" class="public-btn btn-primary">🚨 It's an emergency situation</button>
+    </form>
+    <form action="/send-emergency-contact-alert/{{ user_id }}/vehicle_accident" method="POST">
+        <button type="submit" class="public-btn btn-primary">🚗 It's a vehicle accident</button>
+    </form>
+    <form action="/send-emergency-contact-alert/{{ user_id }}/urgent_assistance" method="POST">
+        <button type="submit" class="public-btn btn-primary">🆘 Urgent assistance is needed</button>
+    </form>
+
+    <a href="/user/{{ user_id }}" class="back-link">← Back to Vehicle Assistance</a>
+</section>
+{% else %}
+<section class="public-card empty-state-card">
+    <div class="empty-state-icon">🛡️</div>
+    <h1>No Emergency Contact Available</h1>
+    <p>The vehicle owner hasn't added an emergency contact yet.</p>
+    <p class="emergency-help-text">If this is a real emergency, please contact local emergency services.</p>
+    <a href="/emergency-services" class="public-btn btn-primary">🚑 Emergency Services</a>
+    <a href="/user/{{ user_id }}" class="back-link">← Back to Vehicle Assistance</a>
+</section>
+{% endif %}
+</div>
+</main>
+</body>
+</html>

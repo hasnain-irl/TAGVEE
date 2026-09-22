@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <title>Alert History - Tagvee</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+<header class="navbar">
+
+    <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+        <a href="/dashboard" class="btn btn-secondary">
+            Dashboard
+        </a>
+
+    </div>
+
+</header>
+
+
+<div class="container">
+
+<section class="auth-container">
+
+<div class="auth-card">
+
+<h1>Alert History</h1>
+
+<p>
+View all alerts received from people who scanned your QR code.
+</p>
+
+<br>
+
+{% if alerts %}
+
+<table>
+
+<tr>
+<th>Alert Type</th>
+<th>Date & Time</th>
+</tr>
+
+{% for alert in alerts %}
+
+<tr>
+
+<td>{{ alert.alert_type }}</td>
+
+<td>{{ alert.created_at }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+{% else %}
+
+<p>No alerts have been received yet.</p>
+
+{% endif %}
+
+<br>
+
+<a href="/dashboard">
+
+<button class="btn btn-primary auth-btn">
+
+Back to Dashboard
+
+</button>
+
+</a>
+
+</div>
+
+</section>
+
+</div>
+
+</body>
+</html>

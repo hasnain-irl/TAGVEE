@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Vehicle Assistance - TAGVEE</title>
+
+    <link rel="icon"
+          type="image/png"
+          href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+   <header class="navbar">
+    <div class="container nav-content">
+
+        <!-- Logo -->
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+        <!-- Navigation -->
+        <nav class="nav-links">
+            <a href="/login">Login</a>
+            <a href="/register" class="nav-register">Register</a>
+        </nav>
+
+    </div>
+</header>
+
+
+<main class="public-page">
+
+    <div class="container">
+    {% if success %}
+
+        <div class="success-banner">
+
+            <div class="success-icon">✅</div>
+
+            <div>
+
+                <h3>Alert Sent Successfully</h3>
+
+                <p>
+                    The vehicle owner has been notified successfully.
+                    Thank you for helping keep the community safe.
+                </p>
+
+            </div>
+
+        </div>
+
+    {% endif %}
+
+        <section class="public-header">
+
+            <h1>🚗 Vehicle Assistance</h1>
+
+            <p>
+                You scanned a Tagvee Vehicle QR Code.
+                Use the options below to contact the vehicle owner
+                or report an issue quickly.
+            </p>
+
+        </section>
+
+        <div class="public-grid">
+        <!-- CONTACT OWNER -->
+
+        <section class="public-card">
+
+            <h2>📞 Contact Owner</h2>
+
+            <p class="card-description">
+                Need to speak with the vehicle owner immediately?
+            </p>
+
+            <p class="card-helper">
+                Instant phone call using your device.
+            </p>
+
+            <a href="/call-owner/{{ user.id }}" class="public-btn btn-primary">
+                📞 Call Owner
+            </a>
+
+        </section>
+
+
+        <!-- EMERGENCY CONTACT -->
+
+        <section class="public-card">
+
+            <h2>👨‍👩‍👧 Emergency Contact</h2>
+
+            <p class="card-description">
+                If the owner cannot be reached, contact their emergency contact.
+            </p>
+
+            <p class="card-helper">
+                Information is protected and only used when necessary.
+            </p>
+
+            <a href="/emergency-contact/{{ user.id }}" class="public-btn btn-primary">
+                👥 View Contact
+            </a>
+
+        </section>
+
+
+        <!-- QUICK ALERTS -->
+
+        <section class="public-card">
+
+            <h2>🚨 Quick Alerts</h2>
+
+            <p>
+                Send an instant alert to the vehicle owner.
+            </p>
+
+            <div class="alert-grid">
+
+                <form action="{{ url_for('send_alert', user_id=user.id, alert_type='Please move your vehicle') }}" method="POST" class="alert-tile-form">
+
+                <button type="submit" class="alert-tile">
+
+                        <span class="alert-icon">🚗</span>
+
+                        <span class="alert-title">
+                            Move Vehicle
+                        </span>
+
+                        <span class="alert-subtitle">
+                            Tap to notify owner
+                        </span>
+
+                
+                </button>
+
+                </form>
+
+                <form action="{{ url_for('send_alert', user_id=user.id, alert_type='Vehicle is blocking the road') }}" method="POST" class="alert-tile-form">
+
+                <button type="submit" class="alert-tile">
+
+                        <span class="alert-icon">🚧</span>
+
+                        <span class="alert-title">
+                            Blocking Road
+                        </span>
+
+                        <span class="alert-subtitle">
+                            Immediate attention
+                        </span>
+
+                
+                </button>
+
+                </form>
+
+                <form action="{{ url_for('send_alert', user_id=user.id, alert_type='Vehicle lights are on') }}" method="POST" class="alert-tile-form">
+
+                <button type="submit" class="alert-tile">
+
+                        <span class="alert-icon">💡</span>
+
+                        <span class="alert-title">
+                            Lights On
+                        </span>
+
+                        <span class="alert-subtitle">
+                            Prevent battery drain
+                        </span>
+
+                
+                </button>
+
+                </form>
+
+                <form action="{{ url_for('send_alert', user_id=user.id, alert_type='Possible accident') }}" method="POST" class="alert-tile-form">
+
+                <button type="submit" class="alert-tile">
+
+                        <span class="alert-icon">🚨</span>
+
+                        <span class="alert-title">
+                            Accident
+                        </span>
+
+                        <span class="alert-subtitle">
+                            Report possible incident
+                        </span>
+
+                
+                </button>
+
+                </form>
+
+                <form action="{{ url_for('send_alert', user_id=user.id, alert_type='Vehicle appears unsafe') }}" method="POST" class="alert-tile-form">
+
+                <button type="submit" class="alert-tile">
+
+                        <span class="alert-icon">⚠️</span>
+
+                        <span class="alert-title">
+                            Unsafe Vehicle
+                        </span>
+
+                        <span class="alert-subtitle">
+                            Safety concern
+                        </span>
+
+                
+                </button>
+
+                </form>
+
+            </div>
+
+        </section>
+
+
+        <!-- EMERGENCY SERVICES -->
+
+        <section class="public-card">
+
+            <h2>🚑 Emergency Services</h2>
+
+            <p class="card-description">
+                Police, Ambulance and Fire numbers are available instantly.
+            </p>
+
+            <p class="card-helper">
+                Use only in genuine emergencies.
+            </p>
+
+            <a href="/emergency-services" class="public-btn btn-primary">
+                🚑 Emergency Numbers
+            </a>
+
+        </section>
+        </div>
+    </div>
+
+</main>
+
+</body>
+</html>

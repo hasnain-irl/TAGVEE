@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<title>QR Scan History - Tagvee</title>
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+ <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+<link rel="stylesheet"
+href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+
+<body>
+
+<header class="navbar">
+
+<div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+<a href="/admin-dashboard"
+class="btn btn-secondary">
+
+Dashboard
+
+</a>
+
+</div>
+
+</header>
+
+
+<div class="container">
+
+<section class="auth-container">
+
+<div class="auth-card">
+
+<h1>QR Scan History</h1>
+
+<p>
+
+Complete QR scan history for this user.
+
+</p>
+
+<br>
+
+<table>
+
+<tr>
+
+<th>User ID</th>
+
+<th>Date & Time</th>
+
+</tr>
+
+{% for scan in scans %}
+
+<tr>
+
+<td>{{ scan.user_id }}</td>
+
+<td>{{ scan.scan_time }}</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
+
+<br>
+
+<a href="/admin-dashboard">
+
+<button
+class="btn btn-primary auth-btn">
+
+Back to Dashboard
+
+</button>
+
+</a>
+
+</div>
+
+</section>
+
+</div>
+
+</body>
+
+</html>

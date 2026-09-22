@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0">
+
+    <title>TAGVEE Call Center</title>
+
+    <style>
+
+        body {
+
+            font-family: Arial, sans-serif;
+
+            background: #f5f7fb;
+
+            text-align: center;
+
+            padding: 40px 20px;
+
+        }
+
+
+        .call-box {
+
+            max-width: 420px;
+
+            margin: auto;
+
+            background: white;
+
+            padding: 30px;
+
+            border-radius: 16px;
+
+            box-shadow:
+                0 5px 25px
+                rgba(0,0,0,0.08);
+
+        }
+
+
+        .status {
+
+            margin: 20px 0;
+
+            font-size: 18px;
+
+        }
+
+
+        button {
+
+            border: none;
+
+            padding: 14px 25px;
+
+            margin: 8px;
+
+            border-radius: 10px;
+
+            font-size: 16px;
+
+            cursor: pointer;
+
+        }
+
+
+        .accept {
+
+            background: #198754;
+
+            color: white;
+
+        }
+
+
+        .reject {
+
+            background: #dc3545;
+
+            color: white;
+
+        }
+
+
+        .end {
+
+            background: #333;
+
+            color: white;
+
+        }
+
+
+        #remoteAudio {
+
+            width: 100%;
+
+            margin-top: 15px;
+
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="call-box">
+
+    <h1>📞 TAGVEE</h1>
+
+    <h2>Vehicle Owner Call Center</h2>
+
+
+    <div
+        id="status"
+        class="status">
+
+        Waiting for incoming call...
+
+    </div>
+
+
+    <div
+        id="buttons"
+        style="display:none;">
+
+        <button
+            class="accept"
+            onclick="acceptCall()">
+
+            ✅ Accept Call
+
+        </button>
+
+
+        <button
+            class="reject"
+            onclick="rejectCall()">
+
+            ❌ Reject
+
+        </button>
+
+    </div>
+
+
+    <button
+        id="endButton"
+        class="end"
+        onclick="endCall()"
+        style="display:none;">
+
+        🔴 End Call
+
+    </button>
+
+
+    <audio
+        id="remoteAudio"
+        autoplay>
+    </audio>
+
+</div>
+
+
+<script>
+let currentCallId = null;
+let peerConnection = null;
+let localStream = null;
+let pendingPollTimer = null;
+let answerSent = false;
+
+const statusElement = document.getElementById("status");
+const buttons = document.getElementById("buttons");
+const endButton = document.getElementById("endButton");
+const remoteAudio = document.getElementById("remoteAudio");
+const rtcConfiguration = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+async function waitForIceGatheringComplete(timeoutMs = 10000) {
+    if (!peerConnection || peerConnection.iceGatheringState === "complete") return;
+    await new Promise(resolve => {
+        let done = false;
+        const finish = () => {
+            if (done) return;
+            done = true;
+            clearTimeout(timeout);
+            peerConnection?.removeEventListener("icegatheringstatechange", check);
+            resolve();
+        };
+        const check = () => {
+            if (peerConnection?.iceGatheringState === "complete") finish();
+        };
+        const timeout = setTimeout(finish, timeoutMs);
+        peerConnection.addEventListener("icegatheringstatechange", check);
+        check();
+    });
+}
+
+async function checkForCall() {
+    if (currentCallId) return;
+    try {
+        const response = await fetch("/api/owner/pending-call", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (data.call_id) {
+            currentCallId = data.call_id;
+            answerSent = false;
+            statusElement.innerText = "📞 Incoming vehicle assistance call";
+            buttons.style.display = "block";
+        }
+    } catch (error) {
+        console.error("TAGVEE pending-call error:", error);
+    }
+}
+setInterval(checkForCall, 750);
+checkForCall();
+
+async function acceptCall() {
+    if (!currentCallId || peerConnection) return;
+    const acceptedId = currentCallId;
+    buttons.style.display = "none";
+    statusElement.innerText = "🎤 Requesting microphone...";
+
+    try {
+        peerConnection = new RTCPeerConnection(rtcConfiguration);
+        peerConnection.ontrack = event => {
+            remoteAudio.srcObject = event.streams[0];
+            remoteAudio.play().catch(() => {});
+        };
+        peerConnection.onconnectionstatechange = () => {
+            const s = peerConnection?.connectionState;
+            console.log("TAGVEE owner state:", {
+                connection: s,
+                ice: peerConnection?.iceConnectionState,
+                gathering: peerConnection?.iceGatheringState,
+                signaling: peerConnection?.signalingState
+            });
+            if (s === "connected") {
+                statusElement.innerText = "🟢 Secure voice call connected";
+                endButton.style.display = "inline-block";
+            } else if (s === "failed") {
+                statusElement.innerText = "❌ Secure connection failed";
+            } else if (s === "disconnected") {
+                statusElement.innerText = "⚠️ Connection interrupted";
+            }
+        };
+
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+        statusElement.innerText = "📡 Receiving secure call offer...";
+        const response = await fetch(`/api/call/${acceptedId}`, { cache: "no-store" });
+        const callData = await response.json();
+        if (!response.ok || !callData.offer) throw new Error(callData.error || "Call offer unavailable");
+
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+
+        statusElement.innerText = "📡 Finalizing secure connection...";
+        await waitForIceGatheringComplete();
+
+        const answerResponse = await fetch(`/api/call/${acceptedId}/answer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ answer: peerConnection.localDescription })
+        });
+        const answerData = await answerResponse.json();
+        console.log("TAGVEE answer POST:", answerResponse.status, answerData);
+        if (!answerResponse.ok || !answerData.success) {
+            throw new Error(answerData.error || `Answer rejected (${answerResponse.status})`);
+        }
+        answerSent = true;
+        statusElement.innerText = "🔄 Connecting secure audio...";
+    } catch (error) {
+        console.error("TAGVEE accept error:", error);
+        try { await fetch(`/api/call/${acceptedId}/end`, { method: "POST" }); } catch (_) {}
+        cleanupCall();
+        statusElement.innerText = "❌ Could not connect the call.";
+    }
+}
+
+async function rejectCall() {
+    const id = currentCallId;
+    if (!id) return;
+    try { await fetch(`/api/call/${id}/reject`, { method: "POST" }); } catch (_) {}
+    cleanupCall();
+    statusElement.innerText = "Call rejected.";
+}
+
+async function endCall() {
+    const id = currentCallId;
+    if (id) {
+        try { await fetch(`/api/call/${id}/end`, { method: "POST" }); } catch (_) {}
+    }
+    cleanupCall();
+    statusElement.innerText = "Call ended.";
+}
+
+function cleanupCall() {
+    if (localStream) localStream.getTracks().forEach(t => t.stop());
+    localStream = null;
+    if (peerConnection) peerConnection.close();
+    peerConnection = null;
+    currentCallId = null;
+    answerSent = false;
+    buttons.style.display = "none";
+    endButton.style.display = "none";
+    remoteAudio.srcObject = null;
+}
+
+window.addEventListener("pagehide", () => {
+    if (currentCallId && navigator.sendBeacon) {
+        navigator.sendBeacon(`/api/call/${currentCallId}/end`, new Blob([], { type: "application/json" }));
+    }
+});
+</script>
+
+</body>
+
+</html>

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Contact - Tagvee</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+<body>
+<header class="navbar">
+    <div class="container nav-content">
+        <a href="/" class="logo-link"><img src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}" alt="TAGVEE" class="logo-image"></a>
+        <a href="/dashboard"><button class="btn btn-outline">Dashboard</button></a>
+    </div>
+</header>
+<div class="container">
+    <div class="auth-container">
+        <div class="auth-card">
+            <h1>Emergency Contact</h1>
+            <p>Add a trusted contact who can receive emergency alerts involving your vehicle.</p>
+            <form method="POST">
+                <label>Contact Name</label>
+                <input type="text" name="contact_name" value="{{ contact.contact_name if contact else '' }}" placeholder="Enter contact name" pattern="[A-Za-z ]+" required>
+
+                <label>Relationship</label>
+                <input type="text" name="relationship" value="{{ contact.relationship if contact else '' }}" placeholder="Father, Brother, Friend..." pattern="[A-Za-z ]+" required>
+
+                <label>Email Address</label>
+                <input type="email" name="email" value="{{ contact.email if contact and contact.email else '' }}" placeholder="example@gmail.com" maxlength="255" required>
+                <p class="privacy-note">🔒 The contact's email address and phone number are never shown to the scanner.</p>
+                <button type="submit" class="btn btn-primary auth-btn">Save Contact</button>
+            </form>
+            <br>
+            <form action="/delete-contact" method="POST">
+                <button type="submit" class="btn btn-danger auth-btn" onclick="return confirm('Are you sure you want to delete this emergency contact?')">Delete Contact</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>

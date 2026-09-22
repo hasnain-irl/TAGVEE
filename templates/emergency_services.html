@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Emergency Services - Tagvee</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+</head>
+<body>
+
+<header class="navbar">
+    <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+    </div>
+</header>
+
+<section class="auth-container">
+
+    <div class="auth-card">
+
+        <h1>Emergency Services</h1>
+
+        <p>
+            Quickly access emergency services during critical situations.
+        </p>
+
+        <br>
+
+        <a href="tel:15">
+            <button class="btn btn-primary auth-btn">
+                🚓 Call Police (15)
+            </button>
+        </a>
+
+        <br><br>
+
+        <a href="tel:1122">
+            <button class="btn btn-primary auth-btn">
+                🚑 Call Ambulance (1122)
+            </button>
+        </a>
+
+        <br><br>
+
+        <a href="tel:16">
+            <button class="btn btn-danger auth-btn">
+                🔥 Call Fire Brigade (16)
+            </button>
+        </a>
+
+    </div>
+
+</section>
+
+</body>
+</html>

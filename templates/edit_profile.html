@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+    <title>Edit Profile - Tagvee</title>
+    <link rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/tagvee-favicon.png') }}">
+
+    <link rel="stylesheet"
+    href="{{ url_for('static', filename='css/style.css') }}">
+
+</head>
+<body>
+
+<header class="navbar">
+
+    <div class="container nav-content">
+
+            <a href="/" class="logo-link">
+                <img
+                    src="{{ url_for('static', filename='images/tagvee-logo-final.png') }}"
+                    alt="TAGVEE"
+                    class="logo-image"              >
+            </a>
+
+
+        <a href="/dashboard">
+            <button class="btn btn-outline">
+                Dashboard
+            </button>
+        </a>
+
+    </div>
+
+</header>
+
+<div class="container">
+
+    <div class="auth-container">
+
+        <div class="auth-card">
+
+            <h1>Edit Profile</h1>
+
+            <p>
+                Update your personal and vehicle
+                information to keep your Tagvee
+                account accurate and up to date.
+            </p>
+
+            <form method="POST">
+
+                <label>Full Name</label>
+
+                <input
+                    type="text"
+                    name="name"
+                    value="{{ user.name }}"
+                    required
+                >
+
+                <label>Email Address</label>
+
+                <input
+                    type="email"
+                    name="email"
+                    value="{{ user.email }}"
+                    required
+                >
+
+                <label>Phone Number</label>
+
+                <input
+                    type="text"
+                    name="phone"
+                    value="{{ user.phone }}"
+                    required
+                >
+
+                <label>Vehicle Number</label>
+
+                <input
+                    type="text"
+                    name="vehicle_number"
+                    value="{{ user.vehicle_number }}"
+                    required
+                >
+
+                <label>Vehicle Type</label>
+
+                <select
+                    name="vehicle_type"
+                    required
+                >
+
+                    <option value="Motorcycle"
+                    {% if user.vehicle_type == "Motorcycle" %}selected{% endif %}>
+                    Motorcycle
+                    </option>
+
+                    <option value="Car"
+                    {% if user.vehicle_type == "Car" %}selected{% endif %}>
+                    Car
+                    </option>
+
+                    <option value="SUV"
+                    {% if user.vehicle_type == "SUV" %}selected{% endif %}>
+                    SUV
+                    </option>
+
+                    <option value="Van"
+                    {% if user.vehicle_type == "Van" %}selected{% endif %}>
+                    Van
+                    </option>
+
+                    <option value="Truck"
+                    {% if user.vehicle_type == "Truck" %}selected{% endif %}>
+                    Truck
+                    </option>
+
+                    <option value="Bus"
+                    {% if user.vehicle_type == "Bus" %}selected{% endif %}>
+                    Bus
+                    </option>
+
+                    <option value="Other"
+                    {% if user.vehicle_type == "Other" %}selected{% endif %}>
+                    Other
+                    </option>
+
+                </select>
+
+                <button
+                    type="submit"
+                    class="btn btn-primary auth-btn">
+
+                    Save Changes
+
+                </button>
+
+            </form>
+
+            <div class="auth-footer">
+
+                <a href="/dashboard">
+                    Back to Dashboard
+                </a>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>
