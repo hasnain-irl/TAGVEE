@@ -30,9 +30,12 @@ app.config["PUBLIC_BASE_URL"] = os.getenv(
     "https://192.168.100.18:5000"
 ).rstrip("/")
 
-# SQLite Database
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///smart_vehicle.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# Database
+app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
+    "TAGVEE_DATABASE_URL",
+    "sqlite:///smart_vehicle.db"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 #EMAIL CONFIG
 app.config["MAIL_SERVER"] = "smtp.gmail.com"
