@@ -63,7 +63,9 @@ app.config["VAPID_SUBJECT"] = os.getenv(
 db = SQLAlchemy(app)
 # Email setup
 mail = Mail(app)
-
+# Create database tables when the application starts
+with app.app_context():
+    db.create_all()
 # WEBRTC CALL STORAGE Prototype only
 
 webrtc_calls = {}
