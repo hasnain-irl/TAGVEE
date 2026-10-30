@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: tagvee
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: TAGVEE_SECRET_KEY
+        generateValue: true
+      - key: TAGVEE_PUBLIC_BASE_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: TAGVEE_VAPID_PRIVATE_KEY_PATH
+        value: /etc/secrets/private_key.pem
+      - key: TAGVEE_VAPID_SUBJECT
+        sync: false
+      - key: TAGVEE_RESEND_API_KEY
+        sync: false
+      - key: TAGVEE_MAIL_FROM
+        sync: false
+    # In Render dashboard, add private_key.pem under Secret Files if push is enabled.
+      - key: TAGVEE_TURN_USERNAME
+        sync: false
+      - key: TAGVEE_TURN_CREDENTIAL
+        sync: false
+      - key: TAGVEE_ADMIN_USERNAME
+        sync: false
+      - key: TAGVEE_ADMIN_PASSWORD
+        sync: false

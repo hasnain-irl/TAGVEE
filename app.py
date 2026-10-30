@@ -14,8 +14,11 @@ import threading
 import secrets
 import hmac
 from collections import defaultdict, deque
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
-TAGVEE_BUILD = "UI-FINALIZATION-PASS-3"
+TAGVEE_BUILD = "SQA-HARDENING-PASS-2026-09-25"
+# from gsm_gateway import make_call
 
 app = Flask(__name__)
 
@@ -25,47 +28,46 @@ if not secret_key:
     raise RuntimeError("TAGVEE_SECRET_KEY environment variable is not set.")
 app.config["SECRET_KEY"] = secret_key
 
-app.config["PUBLIC_BASE_URL"] = os.getenv(
-    "TAGVEE_PUBLIC_BASE_URL",
-    "https://192.168.100.18:5000"
-).rstrip("/")
+# Session hardening: keep the owner logged in across tab closes/browser restarts
+# while still protecting the cookie from JavaScript and cross-site requests.
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = 7 * 24 * 60 * 60
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+# Cookies are secure on the public HTTPS deployment; local HTTP remains testable.
+app.config["SESSION_COOKIE_SECURE"] = os.getenv("TAGVEE_COOKIE_SECURE", "").lower() == "true"
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-# Database
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-    "TAGVEE_DATABASE_URL",
-    "sqlite:///smart_vehicle.db"
-)
+# Public URL: set TAGVEE_PUBLIC_BASE_URL to the deployed HTTPS URL.
+app.config["PUBLIC_BASE_URL"] = os.getenv("TAGVEE_PUBLIC_BASE_URL", "").strip().rstrip("/")
+if "TAGVEE_COOKIE_SECURE" not in os.environ:
+    app.config["SESSION_COOKIE_SECURE"] = app.config["PUBLIC_BASE_URL"].startswith("https://")
+
+# Managed PostgreSQL in production; local SQLite fallback for development.
+database_url = os.getenv("DATABASE_URL", "sqlite:///smart_vehicle.db").strip()
+if database_url.startswith("postgres://"):
+    database_url = "postgresql+psycopg://" + database_url[len("postgres://"):]
+elif database_url.startswith("postgresql://"):
+    # requirements.txt installs psycopg v3, so explicitly select that SQLAlchemy driver.
+    database_url = "postgresql+psycopg://" + database_url[len("postgresql://"):]
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
 
-#EMAIL CONFIG
-app.config["MAIL_SERVER"] = "smtp.gmail.com"
-app.config["MAIL_PORT"] = 587
-app.config["MAIL_USE_TLS"] = True
-
-#dedicated project Gmail account
-app.config["MAIL_USERNAME"] = "tagveeofficial@gmail.com"
+# Email API (Resend) is preferred on cloud hosts that block SMTP ports.
+app.config["RESEND_API_KEY"] = os.getenv("TAGVEE_RESEND_API_KEY", "").strip()
+app.config["MAIL_DEFAULT_SENDER"] = os.getenv("TAGVEE_MAIL_FROM", "tagveeofficial@gmail.com").strip()
+# Optional SMTP fallback for local/other hosting providers.
+app.config["MAIL_SERVER"] = os.getenv("TAGVEE_MAIL_SERVER", "smtp.gmail.com")
+app.config["MAIL_PORT"] = int(os.getenv("TAGVEE_MAIL_PORT", "587"))
+app.config["MAIL_USE_TLS"] = os.getenv("TAGVEE_MAIL_USE_TLS", "true").lower() == "true"
+app.config["MAIL_USERNAME"] = os.getenv("TAGVEE_MAIL_USERNAME", "tagveeofficial@gmail.com")
 app.config["MAIL_PASSWORD"] = os.getenv("TAGVEE_MAIL_PASSWORD", "")
-
-# Email address that will send notifications
-app.config["MAIL_DEFAULT_SENDER"] = "tagveeofficial@gmail.com"
-
-# Web Push configuration
-app.config["VAPID_PRIVATE_KEY"] = os.getenv(
-    "TAGVEE_VAPID_PRIVATE_KEY_PATH",
-    "private_key.pem"
-)
-app.config["VAPID_SUBJECT"] = os.getenv(
-    "TAGVEE_VAPID_SUBJECT",
-    "mailto:tagveeofficial@gmail.com"
-)
 
 # Initialize Database
 db = SQLAlchemy(app)
 # Email setup
 mail = Mail(app)
-# Create database tables when the application starts
-with app.app_context():
-    db.create_all()
+
 # WEBRTC CALL STORAGE Prototype only
 
 webrtc_calls = {}
@@ -269,47 +271,57 @@ class ScanLog(db.Model):
 
 #  EMAIL FUNCTION
 
-def send_email_notification(
-    receiver_email,
-    owner_name,
-    alert_text
-):
-    # Skip sending if email is not configured yet
-    if not app.config["MAIL_USERNAME"] or not app.config["MAIL_PASSWORD"]:
-        print("Email is not configured. Skipping email.")
-        return False
-    
-    msg = MailMessage(
+def send_email_notification(receiver_email, owner_name, alert_text):
+    """Send notification through Resend HTTPS API, or configured SMTP fallback."""
+    public_base_url = app.config.get("PUBLIC_BASE_URL", "").rstrip("/")
+    login_url = f"{public_base_url}/login" if public_base_url else "the TAGVEE login page"
+    body = f"""Hello {owner_name},
 
-        subject="Vehicle Alert Notification",
-
-        sender=app.config['MAIL_USERNAME'],
-
-        recipients=[receiver_email]
-    )
-
-    msg.body = f"""
-Hello {owner_name},
-
-Someone has interacted with your Tagvee QR code.
+Someone has interacted with your TAGVEE QR code.
 
 Alert:
 {alert_text}
 
-Please login to Tagvee to view details.
+Please log in to TAGVEE to view details.
 
 Login:
-{app.config["PUBLIC_BASE_URL"]}/login
+{login_url}
 
-Thank You,
-Tagvee Team
+Thank you,
+TAGVEE Team
 """
+    api_key = app.config.get("RESEND_API_KEY", "")
+    if api_key:
+        payload = json.dumps({
+            "from": app.config.get("MAIL_DEFAULT_SENDER", ""),
+            "to": [receiver_email],
+            "subject": "TAGVEE Vehicle Alert Notification",
+            "text": body,
+        }).encode("utf-8")
+        req = Request(
+            "https://api.resend.com/emails", data=payload,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "User-Agent": "TAGVEE"},
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=12) as response:
+                return 200 <= response.status < 300
+        except (HTTPError, URLError, TimeoutError, OSError) as error:
+            print("Email API notification failed:", error)
+            return False
 
+    if not app.config.get("MAIL_USERNAME") or not app.config.get("MAIL_PASSWORD"):
+        print("Email not configured: set TAGVEE_RESEND_API_KEY and TAGVEE_MAIL_FROM.")
+        return False
+    msg = MailMessage(
+        subject="TAGVEE Vehicle Alert Notification",
+        sender=app.config["MAIL_DEFAULT_SENDER"],
+        recipients=[receiver_email], body=body,
+    )
     try:
         mail.send(msg)
         return True
     except Exception as error:
-        # Keep SMTP/provider details out of the user's browser.
         print("Email notification failed:", error)
         return False
 
@@ -377,9 +389,8 @@ def register():
         vehicle_type = request.form.get("vehicle_type", "").strip()
         password = request.form.get("password", "")
 
-        # --------------------
+
         # VALIDATIONS
-        # --------------------
 
         # Name Validation
         if not name or len(name) > 100 or not re.fullmatch(r"[A-Za-z ]+", name):
@@ -454,6 +465,8 @@ def login():
 
         if user and check_password_hash(user.password, password):
 
+            session.clear()
+            session.permanent = True
             session["user_id"] = user.id
 
             next_url = session.pop("login_next", "")
@@ -636,6 +649,8 @@ def delete_contact():
         user_id=session["user_id"]
     ).first()
 
+    print(contact)
+
     if contact:
         db.session.delete(contact)
         db.session.commit()
@@ -652,18 +667,25 @@ def generate_qr():
 
     user_id = session["user_id"]
 
-    qr_data = f"{app.config['PUBLIC_BASE_URL']}/user/{user_id}"
+    # Prefer the configured public URL. If it is not configured, derive the
+    # current origin from the page used to generate the QR. This prevents a
+    # QR generated from the public Cloudflare dashboard from accidentally
+    # embedding the old LAN address.
+    public_base_url = os.getenv("TAGVEE_PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if not public_base_url:
+        public_base_url = request.host_url.rstrip("/")
+
+    qr_data = f"{public_base_url}/user/{user_id}"
 
     qr = qrcode.make(qr_data)
 
-    qr_directory = os.path.join("static", "qr_codes")
-    os.makedirs(qr_directory, exist_ok=True)
-
     file_path = os.path.join(
-        qr_directory,
+        "static",
+        "qr_codes",
         f"user_{user_id}.png"
     )
 
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
     qr.save(file_path)
 
     return redirect(url_for("dashboard"))
@@ -673,6 +695,7 @@ def generate_qr():
 def public_profile(user_id):
 
     user = User.query.get_or_404(user_id)
+    contact = EmergencyContact.query.filter_by(user_id=user_id).first()
     # Save QR scan to database
     new_scan = ScanLog(
         user_id=user_id
@@ -688,7 +711,9 @@ def public_profile(user_id):
     return render_template(
     "public_profile.html",
     user=public_user,
-    success=request.args.get("success")
+    contact=contact,
+    success=request.args.get("success"),
+    saved=request.args.get("saved")
     )
 
 
@@ -705,7 +730,9 @@ def call_owner(user_id):
 
     return render_template(
         "call_owner.html",
-        user=public_user
+        user=public_user,
+        turn_username=os.getenv("TAGVEE_TURN_USERNAME", ""),
+        turn_credential=os.getenv("TAGVEE_TURN_CREDENTIAL", "")
     )
 
 
@@ -720,6 +747,11 @@ def send_push_notification_to_user(
     subscriptions = PushSubscription.query.filter_by(
         user_id=user_id
     ).all()
+
+    vapid_key_path = os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem")
+    if not os.path.isfile(vapid_key_path):
+        app.logger.warning("Push skipped: VAPID private key file is not configured.")
+        return 0
 
     if not subscriptions:
         print(
@@ -750,9 +782,9 @@ def send_push_notification_to_user(
             webpush(
                 subscription_info=subscription_info,
                 data=payload,
-                vapid_private_key=app.config["VAPID_PRIVATE_KEY"],
+                vapid_private_key=os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem"),
                 vapid_claims={
-                    "sub": app.config["VAPID_SUBJECT"]
+                    "sub": os.getenv("TAGVEE_VAPID_SUBJECT", "mailto:tagveeofficial@gmail.com")
                 }
             )
 
@@ -991,7 +1023,11 @@ def call_center():
     if "user_id" not in session:
         return redirect(url_for("login", next="/call-center"))
 
-    return render_template("call_center.html")
+    return render_template(
+        "call_center.html",
+        turn_username=os.getenv("TAGVEE_TURN_USERNAME", ""),
+        turn_credential=os.getenv("TAGVEE_TURN_CREDENTIAL", "")
+    )
 
 #pending call route
 @app.route("/api/owner/pending-call")
@@ -1081,6 +1117,10 @@ def test_push_notification():
             "error": "Not logged in"
         }, 401
 
+    vapid_key_path = os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem")
+    if not os.path.isfile(vapid_key_path):
+        return {"error": "Push notifications are not configured on this deployment."}, 503
+
     subscriptions = PushSubscription.query.filter_by(
         user_id=session["user_id"]
     ).all()
@@ -1114,9 +1154,9 @@ def test_push_notification():
             webpush(
                 subscription_info=subscription_info,
                 data=payload,
-                vapid_private_key=app.config["VAPID_PRIVATE_KEY"],
+                vapid_private_key=os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem"),
                 vapid_claims={
-                    "sub": app.config["VAPID_SUBJECT"]
+                    "sub": os.getenv("TAGVEE_VAPID_SUBJECT", "mailto:tagveeofficial@gmail.com")
                 }
             )
 
@@ -1149,6 +1189,102 @@ def test_push_notification():
         "error": "All push subscriptions are expired or unavailable"
     }, 500
 
+# CALL OWNER ROUTE - GSM GATEWAY
+#@app.route("/call-owner/<int:user_id>")
+#def call_owner(user_id):
+
+    # find the vehicle owner
+    user = User.query.get_or_404(user_id)
+
+    # owner's private phone number
+    phone_number = user.phone
+
+    # ask the connected Android phone
+    # to make the cellular call
+    success = make_call(phone_number)
+
+    #result to the person who scanned the QR
+    if success:
+        return f"""
+        <div style="text-align:center; margin-top:80px; font-family:Arial;">
+
+            <h2>📞 Calling Vehicle Owner...</h2>
+
+            <p>
+                The call has been initiated.
+            </p>
+
+            <a href="/user/{user.id}">
+                ← Back to Vehicle Assistance
+            </a>
+
+        </div>
+        """
+
+    else:
+
+        return f"""
+        <div style="text-align:center; margin-top:80px; font-family:Arial;">
+
+            <h2>⚠️ Unable to Start Call</h2>
+
+            <p>
+                The call could not be initiated.
+                Please try again.
+            </p>
+
+            <a href="/user/{user.id}">
+                ← Back to Vehicle Assistance
+            </a>
+
+        </div>
+        """, 500
+
+#call owner route
+#@app.route("/call-owner/<int:user_id>")
+#def call_owner(user_id):
+
+    user = User.query.get_or_404(user_id)
+
+    return f"""
+    <script>
+        window.location.href = "tel:{user.phone}";
+    </script>
+
+    <h2>📞 Calling Vehicle Owner...</h2>
+    <p>If the call does not start automatically, your device may not support web calling.</p>
+
+    <a href="/user/{user.id}">Go Back</a>
+   """
+#<a href="/call-owner/{{ user.id }}" class="public-btn btn-primary">
+
+#msg sender route
+#@app.route("/send-message/<int:user_id>", methods=["GET", "POST"])
+#def send_message(user_id):
+
+ #   user = User.query.get_or_404(user_id)
+
+#    if request.method == "POST":
+
+ #       sender_name = request.form["sender_name"]
+  #      sender_phone = request.form["sender_phone"]
+   #     message_text = request.form["message"]
+
+      #  new_message = Message(
+       #     user_id=user.id,
+        #    sender_name=sender_name,
+         #   sender_phone=sender_phone,
+          #  message=message_text
+        #)
+
+     #   db.session.add(new_message)
+    #    db.session.commit()
+
+   #     return "Message Sent Successfully!"
+
+  #  return render_template("send_message.html") """
+
+# Only these alert messages are offered by the public vehicle profile.
 QUICK_ALERTS = {
     "Please move your vehicle",
     "Vehicle is blocking the road",
@@ -1161,16 +1297,14 @@ QUICK_ALERTS = {
 @app.route("/send-alert/<int:user_id>/<path:alert_type>", methods=["POST"])
 def send_alert(user_id, alert_type):
 
+    if alert_type not in QUICK_ALERTS:
+        return "<h2>Invalid alert type</h2>", 400
+
     # STEP 1: GET USER FROM DATABASE
     user = db.session.get(User, user_id)
 
     if not user:
         return "<h2>User not found</h2>", 404
-
-    # Only predefined Quick Alerts are accepted.
-    # This prevents arbitrary text from being injected into the alert/email flow.
-    if alert_type not in QUICK_ALERTS:
-        return "<h2>Invalid alert type</h2>", 400
 
     # STEP 2: RATE LIMIT PUBLIC ALERTS
     # Use the visitor IP + target owner so one visitor cannot repeatedly
@@ -1199,16 +1333,12 @@ def send_alert(user_id, alert_type):
         alert_text=alert_type
     )
 
-    if not email_sent:
-        return "<h2>Alert could not be delivered.</h2><p>Please try again later.</p>", 503
-
-    return redirect(
-        url_for(
-            "public_profile",
-            user_id=user_id,
-            success=1
-        )
-    )
+    return redirect(url_for(
+        "public_profile",
+        user_id=user_id,
+        success=1 if email_sent else None,
+        saved=1 if not email_sent else None
+    ))
 
 # PUBLIC EMERGENCY CONTACT
 
@@ -1252,17 +1382,7 @@ def send_emergency_contact_email(
     vehicle_number,
     situation
 ):
-    if not app.config["MAIL_USERNAME"] or not app.config["MAIL_PASSWORD"]:
-        print("Email is not configured. Skipping emergency-contact email.")
-        return False
-
-    msg = MailMessage(
-        subject="TAGVEE Emergency Contact Alert",
-        sender=app.config["MAIL_USERNAME"],
-        recipients=[receiver_email]
-    )
-
-    msg.body = f"""Hello,
+    body = f"""Hello,
 
 Your {relationship}, {owner_name}, has an emergency involving vehicle {vehicle_number}.
 
@@ -1274,13 +1394,49 @@ This alert was sent through TAGVEE after someone scanned the vehicle's QR code.
 
 TAGVEE Team
 """
+    api_key = app.config.get("RESEND_API_KEY", "")
+    sender = app.config.get("MAIL_DEFAULT_SENDER", "")
+    if api_key:
+        payload = json.dumps({
+            "from": sender,
+            "to": [receiver_email],
+            "subject": "TAGVEE Emergency Contact Alert",
+            "text": body,
+        }).encode("utf-8")
+        req = Request(
+            "https://api.resend.com/emails",
+            data=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "TAGVEE",
+            },
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=12) as response:
+                return 200 <= response.status < 300
+        except (HTTPError, URLError, TimeoutError, OSError) as error:
+            app.logger.warning("Emergency-contact email API failed: %s", error)
+            return False
 
+    if not app.config.get("MAIL_USERNAME") or not app.config.get("MAIL_PASSWORD"):
+        app.logger.warning("Emergency-contact email skipped: email provider is not configured.")
+        return False
+
+    msg = MailMessage(
+        subject="TAGVEE Emergency Contact Alert",
+        sender=sender or app.config["MAIL_USERNAME"],
+        recipients=[receiver_email],
+        body=body,
+    )
     try:
         mail.send(msg)
         return True
     except Exception:
         app.logger.exception("Emergency-contact email failed")
         return False
+
 
 
 @app.route("/send-emergency-contact-alert/<int:user_id>/<alert_type>", methods=["POST"])
@@ -1312,9 +1468,12 @@ def send_emergency_contact_alert(user_id, alert_type):
         vehicle_number=user.vehicle_number,
         situation=situation
     )
-
     if not email_sent:
-        return "<h2>Emergency alert could not be delivered.</h2><p>Please try again later.</p>", 503
+        return (
+            "<h2>Emergency alert could not be delivered.</h2>"
+            "<p>The notification provider is unavailable or not configured. "
+            "Please contact emergency services directly if this is urgent.</p>"
+        ), 502
 
     return redirect(url_for("show_emergency_contact", user_id=user_id, sent=1))
 
@@ -1442,10 +1601,7 @@ def admin_dashboard():
 @admin_required
 def search_user():
 
-    query = request.args.get("q", "").strip()
-
-    if not query:
-        return redirect(url_for("admin_dashboard"))
+    query = request.args.get("q")
 
     users = User.query.filter(
 
@@ -1492,10 +1648,6 @@ def delete_user(user_id):
     ).delete()
 
     ScanLog.query.filter_by(
-        user_id=user.id
-    ).delete()
-
-    PushSubscription.query.filter_by(
         user_id=user.id
     ).delete()
 
@@ -1579,25 +1731,25 @@ def scan_history():
 
 # RUN APPLICATION
 
+# Create tables when the module is imported by Gunicorn in the initial demo deployment.
+# For future schema changes, use proper database migrations instead of relying on create_all().
+with app.app_context():
+    db.create_all()
+    # Optional one-time admin bootstrap for a fresh database.
+    # Existing admin accounts are never overwritten.
+    admin_username = os.getenv("TAGVEE_ADMIN_USERNAME", "").strip()
+    admin_password = os.getenv("TAGVEE_ADMIN_PASSWORD", "")
+    if admin_username and admin_password:
+        existing_admin = Admin.query.filter_by(username=admin_username).first()
+        if not existing_admin:
+            db.session.add(Admin(
+                username=admin_username,
+                password=generate_password_hash(admin_password)
+            ))
+            db.session.commit()
+
 if __name__ == "__main__":
     print(f"TAGVEE BUILD: {TAGVEE_BUILD}")
-
-    with app.app_context():
-        db.create_all()
-
-    ssl_cert = os.getenv(
-        "TAGVEE_SSL_CERT",
-        "certs/192.168.100.18.pem"
-    )
-    ssl_key = os.getenv(
-        "TAGVEE_SSL_KEY",
-        "certs/192.168.100.18-key.pem"
-    )
-
-    app.run(
-        host="0.0.0.0",
-        port=int(os.getenv("TAGVEE_PORT", "5000")),
-        debug=False,
-        use_reloader=False,
-        ssl_context=(ssl_cert, ssl_key)
-    )
+    local_https = os.getenv("TAGVEE_LOCAL_HTTPS", "false").lower() == "true"
+    ssl_context = ("certs/192.168.100.18.pem", "certs/192.168.100.18-key.pem") if local_https else None
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")), debug=False, use_reloader=False, ssl_context=ssl_context)

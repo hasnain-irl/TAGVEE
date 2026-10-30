@@ -65,6 +65,16 @@
 
     {% endif %}
 
+    {% if saved %}
+        <div class="success-banner">
+            <div class="success-icon">⚠️</div>
+            <div>
+                <h3>Alert Recorded</h3>
+                <p>The alert was saved, but email delivery could not be confirmed. The owner may not have been notified.</p>
+            </div>
+        </div>
+    {% endif %}
+
         <section class="public-header">
 
             <h1>🚗 Vehicle Assistance</h1>

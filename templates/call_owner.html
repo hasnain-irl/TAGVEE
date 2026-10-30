@@ -98,190 +98,707 @@
 
 
 <script>
-const ownerId = Number(document.body.dataset.ownerId);
+
+const ownerId =
+    Number(document.body.dataset.ownerId);
+
+
 let callId = null;
 let callerToken = null;
+let candidateBuffer = [];
+
 let peerConnection = null;
+
 let localStream = null;
+
+let candidatePollTimer = null;
+
 let answerPollTimer = null;
 
-const statusElement = document.getElementById("status");
-const endButton = document.getElementById("endButton");
-const remoteAudio = document.getElementById("remoteAudio");
+let sentCallerCandidates = new Set();
 
-const rtcConfiguration = {
-    iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-};
+let receivedOwnerCandidates = new Set();
 
-async function waitForIceGatheringComplete(timeoutMs = 10000) {
-    if (!peerConnection || peerConnection.iceGatheringState === "complete") return;
-    await new Promise(resolve => {
-        let done = false;
-        const finish = () => {
-            if (done) return;
-            done = true;
-            clearTimeout(timeout);
-            peerConnection?.removeEventListener("icegatheringstatechange", check);
-            resolve();
-        };
-        const check = () => {
-            if (peerConnection?.iceGatheringState === "complete") finish();
-        };
-        const timeout = setTimeout(finish, timeoutMs);
-        peerConnection.addEventListener("icegatheringstatechange", check);
-        check();
-    });
+
+const statusElement =
+    document.getElementById("status");
+
+
+const endButton =
+    document.getElementById("endButton");
+
+
+const remoteAudio =
+    document.getElementById("remoteAudio");
+
+
+const turnUsername = {{ turn_username|tojson }};
+const turnCredential = {{ turn_credential|tojson }};
+const iceServers = [
+    { urls: "stun:stun.relay.metered.ca:80" }
+];
+if (turnUsername && turnCredential) {
+    iceServers.push(
+        {
+            urls: "turn:global.relay.metered.ca:80",
+            username: turnUsername,
+            credential: turnCredential
+        },
+        {
+            urls: "turn:global.relay.metered.ca:80?transport=tcp",
+            username: turnUsername,
+            credential: turnCredential
+        },
+        {
+            urls: "turn:global.relay.metered.ca:443",
+            username: turnUsername,
+            credential: turnCredential
+        },
+        {
+            urls: "turns:global.relay.metered.ca:443?transport=tcp",
+            username: turnUsername,
+            credential: turnCredential
+        }
+    );
 }
+const rtcConfiguration = { iceServers };
 
-function showError(message) {
-    console.error(message);
-    statusElement.innerText = "❌ " + message;
-}
 
-function cleanupLocalCall() {
-    if (answerPollTimer) clearInterval(answerPollTimer);
-    answerPollTimer = null;
-    if (localStream) localStream.getTracks().forEach(t => t.stop());
-    localStream = null;
-    if (peerConnection) peerConnection.close();
-    peerConnection = null;
-    callId = null;
-    callerToken = null;
-    endButton.style.display = "none";
-    remoteAudio.srcObject = null;
-}
+/* =========================
+   START CALL
+========================= */
 
 async function startCall() {
+
     try {
-        statusElement.innerText = "🎤 Requesting microphone...";
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
 
-        peerConnection = new RTCPeerConnection(rtcConfiguration);
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        statusElement.innerText =
+            "🎤 Requesting microphone...";
 
-        peerConnection.ontrack = event => {
-            remoteAudio.srcObject = event.streams[0];
-            remoteAudio.play().catch(() => {});
-        };
 
-        peerConnection.onconnectionstatechange = () => {
-            const s = peerConnection?.connectionState;
-            console.log("TAGVEE caller state:", {
-                connection: s,
-                ice: peerConnection?.iceConnectionState,
-                gathering: peerConnection?.iceGatheringState,
-                signaling: peerConnection?.signalingState
+        localStream =
+            await navigator.mediaDevices.getUserMedia({
+
+                audio: true,
+
+                video: false
+
             });
-            if (s === "connected") {
-                statusElement.innerText = "🟢 Secure voice call connected";
-                endButton.style.display = "inline-block";
-            } else if (s === "failed") {
-                statusElement.innerText = "❌ Secure connection failed";
-            } else if (s === "disconnected") {
-                statusElement.innerText = "⚠️ Connection interrupted";
-            }
+
+
+        peerConnection =
+            new RTCPeerConnection(
+                rtcConfiguration
+            );
+
+        peerConnection.oniceconnectionstatechange = function() {
+            console.log("TAGVEE caller ICE:", peerConnection.iceConnectionState);
         };
 
-        statusElement.innerText = "📡 Preparing secure connection...";
-        const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
+        peerConnection.onconnectionstatechange = function() {
+            console.log("TAGVEE caller connection:", peerConnection.connectionState);
+        };
 
-        // FINAL SIGNALING DESIGN: wait for all local ICE candidates to be
-        // embedded in the SDP. No separate candidate exchange is needed.
-        await waitForIceGatheringComplete();
-        console.log("TAGVEE caller ICE gathering:", peerConnection.iceGatheringState);
 
-        statusElement.innerText = "📞 Contacting vehicle owner...";
-        const response = await fetch(`/api/call/start/${ownerId}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ offer: peerConnection.localDescription })
-        });
-        const data = await response.json();
-        if (!response.ok || !data.success) throw new Error(data.error || "Unable to start call");
+        localStream
+            .getTracks()
+            .forEach(track => {
 
-        callId = data.call_id;
-        callerToken = data.caller_token;
-        console.log("TAGVEE call created:", callId);
-        statusElement.innerText = "📞 Calling vehicle owner...";
+                peerConnection.addTrack(
+                    track,
+                    localStream
+                );
+
+            });
+
+
+        peerConnection.ontrack =
+            function(event) {
+
+                remoteAudio.srcObject =
+                    event.streams[0];
+
+            };
+
+
+        peerConnection.onicecandidate =
+            async function(event) {
+
+                if (!event.candidate) {
+                    return;
+                }
+
+
+                const candidate =
+                    event.candidate.toJSON();
+
+                // The ICE event can fire before the Flask call ID exists.
+                // Keep that candidate and send it after /start returns.
+                if (!callId) {
+                    candidateBuffer.push(candidate);
+                    return;
+                }
+
+
+                try {
+                    await sendCallerCandidate(candidate);
+                } catch (error) {
+                    console.error("Caller ICE send error:", error);
+                }
+
+            };
+
+
+        peerConnection.onconnectionstatechange =
+            function() {
+
+                const state =
+                    peerConnection.connectionState;
+
+
+                console.log(
+                    "Caller connection state:",
+                    state
+                );
+
+
+                if (state === "connected") {
+
+                    statusElement.innerText =
+                        "🟢 Secure voice call connected";
+
+                    endButton.style.display =
+                        "inline-block";
+
+                }
+
+
+                if (state === "connecting") {
+
+                    statusElement.innerText =
+                        "🔄 Connecting secure audio...";
+
+                }
+
+
+                if (state === "disconnected") {
+
+                    statusElement.innerText =
+                        "⚠️ Connection interrupted";
+
+                }
+
+
+                if (state === "failed") {
+
+                    statusElement.innerText =
+                        "❌ Secure connection failed";
+
+                }
+
+
+                if (state === "closed") {
+
+                    statusElement.innerText =
+                        "Call ended.";
+
+                }
+
+            };
+
+
+        const offer =
+            await peerConnection.createOffer();
+
+
+        await peerConnection.setLocalDescription(
+            offer
+        );
+
+
+        statusElement.innerText =
+            "📞 Contacting vehicle owner...";
+
+
+        const response =
+            await fetch(
+                `/api/call/start/${ownerId}`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        offer:
+                            peerConnection.localDescription
+
+                    })
+
+                }
+            );
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok || !data.success) {
+
+            throw new Error(
+                data.error ||
+                "Unable to start call"
+            );
+
+        }
+
+
+        callId =
+            data.call_id;
+
+        callerToken =
+            data.caller_token;
+
+        if (!callerToken) {
+            throw new Error("Call authorization token was not returned.");
+        }
+
+        // Flush ICE candidates generated before callId was available.
+        for (const candidate of candidateBuffer) {
+            await sendCallerCandidate(candidate);
+        }
+        candidateBuffer = [];
+
+        statusElement.innerText =
+            "📞 Calling vehicle owner...";
+
+
         startAnswerPolling();
+
+        startOwnerCandidatePolling();
+
+
     } catch (error) {
-        console.error("TAGVEE caller start error:", error);
-        statusElement.innerText = "❌ Unable to start voice call.";
+
+        console.error(
+            "Call start error:",
+            error
+        );
+
+
+        statusElement.innerText =
+            "❌ Unable to start voice call.";
+
+
         cleanupLocalCall();
+
     }
+
 }
+
+
+/* =========================
+   WAIT FOR ANSWER
+========================= */
 
 function startAnswerPolling() {
-    if (answerPollTimer) clearInterval(answerPollTimer);
-    answerPollTimer = setInterval(async () => {
-        if (!callId || !peerConnection) return;
-        try {
-            const response = await fetch(`/api/call/${callId}`, {
-                headers: { "X-Call-Token": callerToken }
-            });
-            if (!response.ok) return;
-            const data = await response.json();
 
-            if (data.status === "rejected") {
-                statusElement.innerText = "❌ Call rejected.";
-                cleanupLocalCall();
+    candidateBuffer = [];
+
+    if (answerPollTimer) {
+
+        clearInterval(
+            answerPollTimer
+        );
+
+    }
+
+
+    answerPollTimer =
+        setInterval(async () => {
+
+            if (
+                !callId ||
+                !peerConnection
+            ) {
                 return;
             }
-            if (data.status === "ended") {
-                statusElement.innerText = "Call ended.";
-                cleanupLocalCall();
-                return;
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        `/api/call/${callId}`,
+                        {
+                            headers: {
+                                "X-Call-Token": callerToken
+                            }
+                        }
+                    );
+
+
+                if (!response.ok) {
+                    return;
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                if (
+                    data.status === "rejected"
+                ) {
+
+                    clearInterval(
+                        answerPollTimer
+                    );
+
+                    answerPollTimer =
+                        null;
+
+                    statusElement.innerText =
+                        "❌ Call rejected.";
+
+                    cleanupLocalCall();
+
+                    return;
+
+                }
+
+
+                if (
+                    data.status === "ended"
+                ) {
+
+                    clearInterval(
+                        answerPollTimer
+                    );
+
+                    answerPollTimer =
+                        null;
+
+                    statusElement.innerText =
+                        "Call ended.";
+
+                    cleanupLocalCall();
+
+                    return;
+
+                }
+
+
+                if (
+                    data.answer &&
+                    peerConnection.signalingState ===
+                        "have-local-offer"
+                ) {
+
+                    clearInterval(
+                        answerPollTimer
+                    );
+
+                    answerPollTimer =
+                        null;
+
+
+                    await peerConnection.setRemoteDescription(
+                        new RTCSessionDescription(
+                            data.answer
+                        )
+                    );
+
+
+                    statusElement.innerText =
+                        "🔄 Connecting secure audio...";
+
+                }
+
+            } catch (error) {
+
+                console.error(
+                    "Answer polling error:",
+                    error
+                );
+
             }
-            if (data.answer && peerConnection.signalingState === "have-local-offer") {
-                clearInterval(answerPollTimer);
-                answerPollTimer = null;
-                console.log("TAGVEE answer received");
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-                statusElement.innerText = "🔄 Connecting secure audio...";
-            }
-        } catch (error) {
-            console.error("TAGVEE answer polling error:", error);
-        }
-    }, 500);
+
+        }, 1000);
+
 }
+
+
+async function sendCallerCandidate(candidate) {
+
+    if (!callId || !callerToken) {
+        return;
+    }
+
+    const candidateKey = JSON.stringify(candidate);
+
+    if (sentCallerCandidates.has(candidateKey)) {
+        return;
+    }
+
+    sentCallerCandidates.add(candidateKey);
+
+    const response = await fetch(
+        `/api/call/${callId}/candidate/caller`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Call-Token": callerToken
+            },
+            body: JSON.stringify({ candidate })
+        }
+    );
+
+    if (!response.ok) {
+        console.error("Caller ICE send failed:", response.status);
+    }
+}
+
+
+/* =========================
+   OWNER ICE CANDIDATES
+========================= */
+
+function startOwnerCandidatePolling() {
+
+    if (candidatePollTimer) {
+
+        clearTimeout(
+            candidatePollTimer
+        );
+
+    }
+
+
+    async function poll() {
+
+        if (
+            !callId ||
+            !peerConnection
+        ) {
+            return;
+        }
+
+
+        try {
+
+            const response =
+                await fetch(
+                    `/api/call/${callId}`
+                );
+
+
+            if (!response.ok) {
+                return;
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (data.owner_candidates) {
+
+                for (
+                    const candidate
+                    of data.owner_candidates
+                ) {
+
+                    const candidateKey =
+                        JSON.stringify(candidate);
+
+
+                    if (
+                        receivedOwnerCandidates.has(
+                            candidateKey
+                        )
+                    ) {
+                        continue;
+                    }
+
+
+                    receivedOwnerCandidates.add(
+                        candidateKey
+                    );
+
+
+                    try {
+
+                        await peerConnection.addIceCandidate(
+                            new RTCIceCandidate(
+                                candidate
+                            )
+                        );
+
+                    } catch (error) {
+
+                        console.error(
+                            "Owner ICE error:",
+                            error
+                        );
+
+                    }
+
+                }
+
+            }
+
+
+            if (
+                data.status !== "ended" &&
+                data.status !== "rejected"
+            ) {
+
+                candidatePollTimer =
+                    setTimeout(
+                        poll,
+                        1000
+                    );
+
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Owner candidate polling error:",
+                error
+            );
+
+
+            candidatePollTimer =
+                setTimeout(
+                    poll,
+                    1500
+                );
+
+        }
+
+    }
+
+
+    poll();
+
+}
+
+
+/* =========================
+   END CALL
+========================= */
 
 async function endCall() {
-    if (callId) {
-        try { await fetch(`/api/call/${callId}/end`, {
-                method: "POST",
-                headers: { "X-Call-Token": callerToken }
-            }); } catch (_) {}
-    }
+
+    const activeCallId =
+        callId;
+
+
     cleanupLocalCall();
-    statusElement.innerText = "Call ended.";
-}
 
-function leaveCall(event) {
-    if (!callId) return;
-    event.preventDefault();
-    fetch(`/api/call/${callId}/end`, {
-        method: "POST",
-        headers: { "X-Call-Token": callerToken },
-        keepalive: true
-    }).finally(() => {
-        window.location.href = event.currentTarget.href;
-    });
-}
 
-window.addEventListener("pagehide", () => {
-    if (callId && navigator.sendBeacon) {
-        navigator.sendBeacon(
-            `/api/call/${callId}/end`,
-            new Blob([JSON.stringify({ caller_token: callerToken })], { type: "application/json" })
-        );
+    if (activeCallId) {
+
+        try {
+
+            await fetch(
+                `/api/call/${activeCallId}/end`,
+                {
+                    method: "POST",
+                    headers: {
+                        "X-Call-Token": callerToken
+                    }
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                "End call error:",
+                error
+            );
+
+        }
+
     }
-});
 
-const backLink = document.querySelector(".back");
-if (backLink) backLink.addEventListener("click", leaveCall);
+
+    statusElement.innerText =
+        "Call ended.";
+
+}
+
+
+/* =========================
+   LOCAL CLEANUP
+========================= */
+
+function cleanupLocalCall() {
+
+    if (answerPollTimer) {
+
+        clearInterval(
+            answerPollTimer
+        );
+
+        answerPollTimer =
+            null;
+
+    }
+
+
+    if (candidatePollTimer) {
+
+        clearTimeout(
+            candidatePollTimer
+        );
+
+        candidatePollTimer =
+            null;
+
+    }
+
+
+    if (localStream) {
+
+        localStream
+            .getTracks()
+            .forEach(track => track.stop());
+
+        localStream =
+            null;
+
+    }
+
+
+    if (peerConnection) {
+
+        peerConnection.close();
+
+        peerConnection =
+            null;
+
+    }
+
+
+    remoteAudio.srcObject =
+        null;
+
+
+    endButton.style.display =
+        "none";
+
+}
+
 
 startCall();
+
 </script>
 
 </body>
