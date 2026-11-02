@@ -716,52 +716,41 @@ def public_profile(user_id):
     )
 
 
-# WEBRTC CALL - CALLER
-
-@app.route("/call-owner/<int:user_id>")
-def call_owner(user_id):
-
-    user = User.query.get_or_404(user_id)
-
-    # SECURITY: the call page only needs the owner's public ID.
-    # Do not pass the full User object (which contains the private phone number).
-    public_user = {"id": user.id}
-
-    return render_template(
-        "call_owner.html",
-        user=public_user,
-        turn_username=os.getenv("TAGVEE_TURN_USERNAME", ""),
-        turn_credential=os.getenv("TAGVEE_TURN_CREDENTIAL", "")
-    )
-
-
-# WEBRTC CALL - CALLER route
+# SEND PUSH NOTIFICATION
 def send_push_notification_to_user(
     user_id,
     title,
     body,
     url="/dashboard"
 ):
-
     subscriptions = PushSubscription.query.filter_by(
         user_id=user_id
     ).all()
 
-    vapid_key_path = os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem")
+    # Prefer the private key stored in the environment.
+    vapid_private_key = os.getenv(
+        "TAGVEE_VAPID_PRIVATE_KEY", ""
+    ).strip()
 
-    if not os.path.isfile(vapid_key_path):
-        app.logger.warning(
-        "Push skipped: VAPID private key file not found at %s",
-        vapid_key_path
+    # Fall back to the PEM file for local development.
+    if not vapid_private_key:
+        vapid_key_path = os.getenv(
+            "TAGVEE_VAPID_PRIVATE_KEY_PATH",
+            "private_key.pem"
         )
-        return 0
 
-    with open(vapid_key_path, "r", encoding="utf-8") as key_file:
-        vapid_private_key = key_file.read().strip()
+        if not os.path.isfile(vapid_key_path):
+            app.logger.warning(
+                "Push skipped: VAPID private key is not configured."
+            )
+            return 0
+
+        vapid_private_key = vapid_key_path
 
     if not subscriptions:
-        print(
-            f"No push subscriptions found for user {user_id}"
+        app.logger.info(
+            "No push subscriptions found for user %s",
+            user_id
         )
         return 0
 
@@ -774,7 +763,6 @@ def send_push_notification_to_user(
     sent_count = 0
 
     for subscription in subscriptions:
-
         subscription_info = {
             "endpoint": subscription.endpoint,
             "keys": {
@@ -784,34 +772,40 @@ def send_push_notification_to_user(
         }
 
         try:
-
             webpush(
                 subscription_info=subscription_info,
                 data=payload,
                 vapid_private_key=vapid_private_key,
                 vapid_claims={
-                    "sub": os.getenv("TAGVEE_VAPID_SUBJECT", "mailto:tagveeofficial@gmail.com")
+                    "sub": os.getenv(
+                        "TAGVEE_VAPID_SUBJECT",
+                        "mailto:tagveeofficial@gmail.com"
+                    )
                 }
             )
 
             sent_count += 1
 
-            print(
-                "Push notification sent:",
+            app.logger.info(
+                "Push notification sent for subscription %s",
                 subscription.id
             )
 
         except WebPushException as error:
-
-            print(
-                "Web Push Error for subscription:",
+            app.logger.warning(
+                "Web Push Error for subscription %s: %s",
                 subscription.id,
                 error
             )
 
             if "410" in str(error) or "404" in str(error):
-
                 db.session.delete(subscription)
+
+        except Exception:
+            app.logger.exception(
+                "Unexpected push error for subscription %s",
+                subscription.id
+            )
 
     db.session.commit()
 
@@ -1114,27 +1108,37 @@ def subscribe_push():
         "message": "Push subscription saved"
     }
 
+
 # TEST PUSH NOTIFICATION
 @app.route("/api/push/test", methods=["POST"])
 def test_push_notification():
 
     if "user_id" not in session:
-        return {
-            "error": "Not logged in"
-        }, 401
+        return {"error": "Not logged in"}, 401
 
-    vapid_key_path = os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem")
-    if not os.path.isfile(vapid_key_path):
-        return {"error": "Push notifications are not configured on this deployment."}, 503
+    # Prefer the private key stored in the environment.
+    vapid_private_key = os.getenv("TAGVEE_VAPID_PRIVATE_KEY", "").strip()
+
+    # If no environment key exists, fall back to the local PEM file.
+    if not vapid_private_key:
+        vapid_key_path = os.getenv(
+            "TAGVEE_VAPID_PRIVATE_KEY_PATH",
+            "private_key.pem"
+        )
+
+        if not os.path.isfile(vapid_key_path):
+            return {
+                "error": "Push notifications are not configured on this deployment."
+            }, 503
+
+        vapid_private_key = vapid_key_path
 
     subscriptions = PushSubscription.query.filter_by(
         user_id=session["user_id"]
     ).all()
 
     if not subscriptions:
-        return {
-            "error": "No push subscription found"
-        }, 404
+        return {"error": "No push subscription found"}, 404
 
     payload = json.dumps({
         "title": "TAGVEE Test",
@@ -1143,10 +1147,8 @@ def test_push_notification():
     })
 
     sent_count = 0
-    expired_count = 0
 
     for subscription in subscriptions:
-
         subscription_info = {
             "endpoint": subscription.endpoint,
             "keys": {
@@ -1156,43 +1158,46 @@ def test_push_notification():
         }
 
         try:
-
             webpush(
                 subscription_info=subscription_info,
                 data=payload,
-                vapid_private_key=os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem"),
+                vapid_private_key=vapid_private_key,
                 vapid_claims={
-                    "sub": os.getenv("TAGVEE_VAPID_SUBJECT", "mailto:tagveeofficial@gmail.com")
+                    "sub": os.getenv(
+                        "TAGVEE_VAPID_SUBJECT",
+                        "mailto:tagveeofficial@gmail.com"
+                    )
                 }
             )
 
             sent_count += 1
 
         except WebPushException as error:
-
             print(
                 "Web Push Error for subscription:",
                 subscription.id,
                 error
             )
 
-            # Subscription expired/unsubscribed.
             if "410" in str(error) or "404" in str(error):
-
                 db.session.delete(subscription)
-                expired_count += 1
+
+        except Exception as error:
+            app.logger.exception(
+                "Unexpected push error for subscription %s",
+                subscription.id
+            )
 
     db.session.commit()
 
     if sent_count > 0:
-
         return {
             "success": True,
             "message": "Test notification sent"
-        }
+        }, 200
 
     return {
-        "error": "All push subscriptions are expired or unavailable"
+        "error": "The push notification could not be delivered. Check the server logs."
     }, 500
 
 # CALL OWNER ROUTE - GSM GATEWAY
