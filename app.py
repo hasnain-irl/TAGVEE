@@ -1118,6 +1118,11 @@ def test_push_notification():
 
     # Prefer the private key stored in the environment.
     vapid_private_key = os.getenv("TAGVEE_VAPID_PRIVATE_KEY", "").strip()
+    app.logger.info(
+    "VAPID environment key check: present=%s, length=%s",
+    bool(vapid_private_key),
+    len(vapid_private_key)
+    )
 
     # If no environment key exists, fall back to the local PEM file.
     if not vapid_private_key:
