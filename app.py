@@ -307,8 +307,7 @@ TAGVEE Team
             with urlopen(req, timeout=12) as response:
                 return 200 <= response.status < 300
         except (HTTPError, URLError, TimeoutError, OSError) as error:
-            print("Email API notification failed:", error)
-            return False
+            print("Email API notification failed; trying SMTP fallback:", error)
 
     if not app.config.get("MAIL_USERNAME") or not app.config.get("MAIL_PASSWORD"):
         print("Email not configured: set TAGVEE_RESEND_API_KEY and TAGVEE_MAIL_FROM.")
@@ -749,9 +748,16 @@ def send_push_notification_to_user(
     ).all()
 
     vapid_key_path = os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem")
+
     if not os.path.isfile(vapid_key_path):
-        app.logger.warning("Push skipped: VAPID private key file is not configured.")
+        app.logger.warning(
+        "Push skipped: VAPID private key file not found at %s",
+        vapid_key_path
+        )
         return 0
+
+    with open(vapid_key_path, "r", encoding="utf-8") as key_file:
+        vapid_private_key = key_file.read().strip()
 
     if not subscriptions:
         print(
@@ -782,7 +788,7 @@ def send_push_notification_to_user(
             webpush(
                 subscription_info=subscription_info,
                 data=payload,
-                vapid_private_key=os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem"),
+                vapid_private_key=vapid_private_key,
                 vapid_claims={
                     "sub": os.getenv("TAGVEE_VAPID_SUBJECT", "mailto:tagveeofficial@gmail.com")
                 }
