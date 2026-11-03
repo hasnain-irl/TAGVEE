@@ -739,13 +739,27 @@ def _prepare_vapid_private_key():
         # Support both real line breaks and literal \\n in environment values.
         pem_text = pem_text.replace("\\n", "\n")
         try:
-            serialization.load_pem_private_key(
+            private_key = serialization.load_pem_private_key(
                 pem_text.encode("utf-8"),
                 password=None
             )
+            # py_vapid expects an EC private key in traditional SEC1 PEM form.
+            # Normalize PKCS#8 or other valid PEM wrappers to that exact format.
+            from cryptography.hazmat.primitives.asymmetric import ec
+            if not isinstance(private_key, ec.EllipticCurvePrivateKey):
+                app.logger.error("VAPID key must be an elliptic-curve private key.")
+                return None, False
+            if not isinstance(private_key.curve, ec.SECP256R1):
+                app.logger.error("VAPID key must use the P-256 (secp256r1) curve.")
+                return None, False
+            normalized_pem = private_key.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=serialization.NoEncryption()
+            ).decode("utf-8")
         except (ValueError, TypeError):
             app.logger.exception(
-                "VAPID private key is not valid PEM. Check the deployment secret."
+                "VAPID private key is invalid. Check the deployment secret format."
             )
             return None, False
 
@@ -753,7 +767,7 @@ def _prepare_vapid_private_key():
             mode="w", encoding="utf-8", suffix=".pem", delete=False
         )
         try:
-            temp_file.write(pem_text)
+            temp_file.write(normalized_pem)
             temp_file.flush()
         finally:
             temp_file.close()
@@ -1234,6 +1248,18 @@ def test_push_notification():
     return {
         "error": "The push notification could not be delivered. Check the server logs."
     }, 500
+
+# CALL OWNER ROUTE - start the privacy-preserving WebRTC caller interface.
+@app.route("/call-owner/<int:user_id>")
+def call_owner(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return "Vehicle owner not found.", 404
+
+    # Pass only the public ID. The owner's private phone number is never sent
+    # to the visitor; the call is handled by the existing WebRTC endpoints.
+    return render_template("call_owner.html", user={"id": user.id})
+
 
 # CALL OWNER ROUTE - GSM GATEWAY
 #@app.route("/call-owner/<int:user_id>")
