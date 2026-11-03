@@ -16,6 +16,7 @@ import hmac
 from collections import defaultdict, deque
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
+from cryptography.hazmat.primitives import serialization
 
 TAGVEE_BUILD = "SQA-HARDENING-PASS-2026-09-25"
 # from gsm_gateway import make_call
@@ -729,8 +730,14 @@ def send_push_notification_to_user(
 
     # Prefer the private key stored in the environment.
     vapid_private_key = os.getenv(
-        "TAGVEE_VAPID_PRIVATE_KEY", ""
+    "TAGVEE_VAPID_PRIVATE_KEY", ""
     ).strip()
+
+    if vapid_private_key:
+        vapid_private_key = serialization.load_pem_private_key(
+        vapid_private_key.encode("utf-8"),
+        password=None
+    )
 
     # Fall back to the PEM file for local development.
     if not vapid_private_key:
@@ -1117,11 +1124,14 @@ def test_push_notification():
         return {"error": "Not logged in"}, 401
 
     # Prefer the private key stored in the environment.
-    vapid_private_key = os.getenv("TAGVEE_VAPID_PRIVATE_KEY", "").strip()
-    app.logger.info(
-    "VAPID environment key check: present=%s, length=%s",
-    bool(vapid_private_key),
-    len(vapid_private_key)
+    vapid_private_key = os.getenv(
+        "TAGVEE_VAPID_PRIVATE_KEY", ""
+    ).strip()
+
+    if vapid_private_key:
+        vapid_private_key = serialization.load_pem_private_key(
+        vapid_private_key.encode("utf-8"),
+        password=None
     )
 
     # If no environment key exists, fall back to the local PEM file.
