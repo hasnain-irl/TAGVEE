@@ -1258,7 +1258,12 @@ def call_owner(user_id):
 
     # Pass only the public ID. The owner's private phone number is never sent
     # to the visitor; the call is handled by the existing WebRTC endpoints.
-    return render_template("call_owner.html", user={"id": user.id})
+    return render_template(
+        "call_owner.html",
+        user={"id": user.id},
+        turn_username=os.getenv("TAGVEE_TURN_USERNAME", ""),
+        turn_credential=os.getenv("TAGVEE_TURN_CREDENTIAL", "")
+    )
 
 
 # CALL OWNER ROUTE - GSM GATEWAY
