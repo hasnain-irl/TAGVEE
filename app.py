@@ -13,6 +13,7 @@ import time
 import threading
 import secrets
 import hmac
+import tempfile
 from collections import defaultdict, deque
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -696,6 +697,15 @@ def public_profile(user_id):
 
     user = User.query.get_or_404(user_id)
     contact = EmergencyContact.query.filter_by(user_id=user_id).first()
+
+    # Pass only public-safe emergency-contact details to the public page.
+    public_contact = None
+    if contact:
+        public_contact = {
+            "contact_name": contact.contact_name,
+            "relationship": contact.relationship
+        }
+
     # Save QR scan to database
     new_scan = ScanLog(
         user_id=user_id
@@ -711,10 +721,56 @@ def public_profile(user_id):
     return render_template(
     "public_profile.html",
     user=public_user,
-    contact=contact,
+    contact=public_contact,
     success=request.args.get("success"),
     saved=request.args.get("saved")
     )
+
+
+# VAPID KEY HANDLING
+def _prepare_vapid_private_key():
+    """
+    Return (key_path, should_delete).
+    pywebpush expects a PEM file path here, not a cryptography key object.
+    """
+    pem_text = os.getenv("TAGVEE_VAPID_PRIVATE_KEY", "").strip()
+
+    if pem_text:
+        # Support both real line breaks and literal \\n in environment values.
+        pem_text = pem_text.replace("\\n", "\n")
+        try:
+            serialization.load_pem_private_key(
+                pem_text.encode("utf-8"),
+                password=None
+            )
+        except (ValueError, TypeError):
+            app.logger.exception(
+                "VAPID private key is not valid PEM. Check the deployment secret."
+            )
+            return None, False
+
+        temp_file = tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", suffix=".pem", delete=False
+        )
+        try:
+            temp_file.write(pem_text)
+            temp_file.flush()
+        finally:
+            temp_file.close()
+        return temp_file.name, True
+
+    key_path = os.getenv("TAGVEE_VAPID_PRIVATE_KEY_PATH", "private_key.pem")
+    if not os.path.isfile(key_path):
+        return None, False
+    return key_path, False
+
+
+def _cleanup_temporary_vapid_key(key_path, should_delete):
+    if should_delete and key_path:
+        try:
+            os.remove(key_path)
+        except OSError:
+            app.logger.warning("Could not remove temporary VAPID key file.")
 
 
 # SEND PUSH NOTIFICATION
@@ -728,36 +784,17 @@ def send_push_notification_to_user(
         user_id=user_id
     ).all()
 
-    # Prefer the private key stored in the environment.
-    vapid_private_key = os.getenv(
-    "TAGVEE_VAPID_PRIVATE_KEY", ""
-    ).strip()
-
-    if vapid_private_key:
-        vapid_private_key = serialization.load_pem_private_key(
-        vapid_private_key.encode("utf-8"),
-        password=None
-    )
-
-    # Fall back to the PEM file for local development.
-    if not vapid_private_key:
-        vapid_key_path = os.getenv(
-            "TAGVEE_VAPID_PRIVATE_KEY_PATH",
-            "private_key.pem"
-        )
-
-        if not os.path.isfile(vapid_key_path):
-            app.logger.warning(
-                "Push skipped: VAPID private key is not configured."
-            )
-            return 0
-
-        vapid_private_key = vapid_key_path
-
     if not subscriptions:
         app.logger.info(
             "No push subscriptions found for user %s",
             user_id
+        )
+        return 0
+
+    vapid_key_path, delete_vapid_key = _prepare_vapid_private_key()
+    if not vapid_key_path:
+        app.logger.warning(
+            "Push skipped: VAPID private key is not configured."
         )
         return 0
 
@@ -782,7 +819,7 @@ def send_push_notification_to_user(
             webpush(
                 subscription_info=subscription_info,
                 data=payload,
-                vapid_private_key=vapid_private_key,
+                vapid_private_key=vapid_key_path,
                 vapid_claims={
                     "sub": os.getenv(
                         "TAGVEE_VAPID_SUBJECT",
@@ -815,6 +852,7 @@ def send_push_notification_to_user(
             )
 
     db.session.commit()
+    _cleanup_temporary_vapid_key(vapid_key_path, delete_vapid_key)
 
     return sent_count
 
@@ -1123,37 +1161,18 @@ def test_push_notification():
     if "user_id" not in session:
         return {"error": "Not logged in"}, 401
 
-    # Prefer the private key stored in the environment.
-    vapid_private_key = os.getenv(
-        "TAGVEE_VAPID_PRIVATE_KEY", ""
-    ).strip()
-
-    if vapid_private_key:
-        vapid_private_key = serialization.load_pem_private_key(
-        vapid_private_key.encode("utf-8"),
-        password=None
-    )
-
-    # If no environment key exists, fall back to the local PEM file.
-    if not vapid_private_key:
-        vapid_key_path = os.getenv(
-            "TAGVEE_VAPID_PRIVATE_KEY_PATH",
-            "private_key.pem"
-        )
-
-        if not os.path.isfile(vapid_key_path):
-            return {
-                "error": "Push notifications are not configured on this deployment."
-            }, 503
-
-        vapid_private_key = vapid_key_path
-
     subscriptions = PushSubscription.query.filter_by(
         user_id=session["user_id"]
     ).all()
 
     if not subscriptions:
         return {"error": "No push subscription found"}, 404
+
+    vapid_key_path, delete_vapid_key = _prepare_vapid_private_key()
+    if not vapid_key_path:
+        return {
+            "error": "Push notifications are not configured on this deployment."
+        }, 503
 
     payload = json.dumps({
         "title": "TAGVEE Test",
@@ -1176,7 +1195,7 @@ def test_push_notification():
             webpush(
                 subscription_info=subscription_info,
                 data=payload,
-                vapid_private_key=vapid_private_key,
+                vapid_private_key=vapid_key_path,
                 vapid_claims={
                     "sub": os.getenv(
                         "TAGVEE_VAPID_SUBJECT",
@@ -1204,6 +1223,7 @@ def test_push_notification():
             )
 
     db.session.commit()
+    _cleanup_temporary_vapid_key(vapid_key_path, delete_vapid_key)
 
     if sent_count > 0:
         return {
