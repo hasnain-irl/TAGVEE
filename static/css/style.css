@@ -2273,3 +2273,204 @@ table th{
         transition-duration:.01ms !important;
     }
 }
+
+
+/* =========================================================
+   TAGVEE ICON SYSTEM — INLINE LUCIDE-STYLE SVG
+   Icons inherit their color from the surrounding component.
+========================================================= */
+.icon {
+    width: 1.15em;
+    height: 1.15em;
+    flex: 0 0 auto;
+    display: inline-block;
+    vertical-align: -0.18em;
+    stroke: currentColor;
+}
+h1 > .icon,
+h2 > .icon,
+h3 > .icon,
+.public-header h1 > .icon,
+.public-card h2 > .icon {
+    margin-right: 0.45rem;
+}
+.public-header h1,
+.public-card h2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+}
+.public-card h2 {
+    justify-content: flex-start;
+}
+.public-btn .icon,
+.btn .icon,
+.alert-tile .icon,
+.back-link .icon,
+.privacy-note .icon {
+    width: 1.15em;
+    height: 1.15em;
+}
+.alert-icon .icon {
+    width: 25px;
+    height: 25px;
+    stroke-width: 1.8;
+}
+.success-icon .icon {
+    width: 1.25em;
+    height: 1.25em;
+}
+.empty-state-icon .icon {
+    width: 48px;
+    height: 48px;
+}
+.privacy-note .icon {
+    margin-right: 0.35rem;
+    vertical-align: -0.2em;
+}
+.btn,
+.public-btn,
+.alert-tile,
+.back-link {
+    gap: 0.55rem;
+}
+a.btn {
+    text-decoration: none;
+}
+a.btn:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.38);
+    outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Keep icon-bearing controls aligned consistently. */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .55rem; }
+.btn > .icon, .public-btn > .icon { flex: 0 0 auto; }
+
+
+/* TAGVEE public page icon colour trial: brand blue */
+.public-page .icon {
+    color: var(--tagvee-blue, #2563eb);
+}
+
+
+/* Public page icon refinement: keep action icons legible on blue buttons. */
+.public-page .public-btn > .icon {
+    color: #ffffff;
+    stroke: currentColor;
+}
+
+
+/* TAGVEE homepage footer */
+.tagvee-footer {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    margin-top: 64px;
+    padding: 48px 24px 30px;
+    text-align: center;
+    color: #eaf1ff;
+    background: linear-gradient(135deg, #102344 0%, #142f59 58%, #102746 100%);
+    border-top: 4px solid #2563eb;
+}
+
+.tagvee-footer::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    width: 340px;
+    height: 340px;
+    top: -245px;
+    left: calc(50% - 170px);
+    border: 1px solid rgba(96, 165, 250, 0.20);
+    border-radius: 50%;
+    box-shadow: 0 0 0 28px rgba(96, 165, 250, 0.035),
+                0 0 0 58px rgba(96, 165, 250, 0.025);
+    pointer-events: none;
+}
+
+.tagvee-footer-content {
+    width: min(100%, 900px);
+    margin: 0 auto;
+}
+
+.tagvee-footer-brand {
+    display: inline-block;
+    margin-bottom: 10px;
+    color: #ffffff;
+    font-size: 1.45rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+}
+
+.tagvee-footer-tagline {
+    margin: 0;
+    color: #cbdaf3;
+    font-size: 0.98rem;
+    line-height: 1.6;
+}
+
+.tagvee-footer-divider {
+    width: 56px;
+    height: 3px;
+    margin: 24px auto;
+    border-radius: 99px;
+    background: #3b82f6;
+}
+
+.tagvee-footer-contact {
+    margin: 0 0 22px;
+    color: #cbdaf3;
+    font-size: 0.94rem;
+}
+
+.tagvee-footer-contact a {
+    color: #ffffff;
+    font-weight: 600;
+    text-decoration: none;
+    text-underline-offset: 4px;
+    transition: color 0.2s ease, text-decoration-color 0.2s ease;
+}
+
+.tagvee-footer-contact a:hover {
+    color: #93c5fd;
+    text-decoration: underline;
+}
+
+.tagvee-footer-copyright {
+    margin: 0;
+    padding-top: 18px;
+    border-top: 1px solid rgba(203, 218, 243, 0.16);
+    color: #aebfda;
+    font-size: 0.84rem;
+}
+
+@media (max-width: 600px) {
+    .tagvee-footer {
+        margin-top: 44px;
+        padding: 38px 18px 24px;
+    }
+
+    .tagvee-footer-tagline {
+        font-size: 0.9rem;
+    }
+
+    .tagvee-footer-contact {
+        line-height: 1.8;
+    }
+}

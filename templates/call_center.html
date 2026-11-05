@@ -106,6 +106,7 @@
 
         }
 
+     .icon{width:1.15em;height:1.15em;display:inline-block;vertical-align:-.2em;flex:0 0 auto}.brand-heading{display:flex;align-items:center;justify-content:center;gap:10px}button{display:inline-flex;align-items:center;justify-content:center;gap:9px}
     </style>
 
 </head>
@@ -115,7 +116,7 @@
 
 <div class="call-box">
 
-    <h1>📞 TAGVEE</h1>
+    <h1 class="brand-heading"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3 5.2 2 2 0 0 1 5 3h3a2 2 0 0 1 2 1.7l.4 3.1a2 2 0 0 1-.6 1.7L8 9.9a16 16 0 0 0 6 6l1.4-1.8a2 2 0 0 1 1.7-.6l3.1.4a2 2 0 0 1 1.8 2z"/></svg> TAGVEE</h1>
 
     <h2>Vehicle Owner Call Center</h2>
 
@@ -137,7 +138,7 @@
             class="accept"
             onclick="acceptCall()">
 
-            ✅ Accept Call
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m5 12 4 4L19 6"/></svg> Accept Call
 
         </button>
 
@@ -146,7 +147,7 @@
             class="reject"
             onclick="rejectCall()">
 
-            ❌ Reject
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg> Reject
 
         </button>
 
@@ -159,7 +160,7 @@
         onclick="endCall()"
         style="display:none;">
 
-        🔴 End Call
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10.7 13.3a16 16 0 0 0 3 2.7l1.3-1.3a2 2 0 0 1 1.7-.6l3.1.5a2 2 0 0 1 1.7 2v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 10 18.5M6.2 14.8A19.7 19.7 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7l.4 3.1a2 2 0 0 1-.6 1.7L7.6 9.8"/><path d="m2 2 20 20"/></svg> End Call
 
     </button>
 
@@ -243,7 +244,7 @@ async function checkForCall() {
         if (data.call_id) {
             currentCallId = data.call_id;
             answerSent = false;
-            statusElement.innerText = "📞 Incoming vehicle assistance call";
+            statusElement.innerText = "Incoming vehicle assistance call";
             buttons.style.display = "block";
         }
     } catch (error) {
@@ -257,7 +258,7 @@ async function acceptCall() {
     if (!currentCallId || peerConnection) return;
     const acceptedId = currentCallId;
     buttons.style.display = "none";
-    statusElement.innerText = "🎤 Requesting microphone...";
+    statusElement.innerText = "Requesting microphone...";
 
     try {
         peerConnection = new RTCPeerConnection(rtcConfiguration);
@@ -279,19 +280,19 @@ async function acceptCall() {
                 signaling: peerConnection?.signalingState
             });
             if (s === "connected") {
-                statusElement.innerText = "🟢 Secure voice call connected";
+                statusElement.innerText = "Secure voice call connected";
                 endButton.style.display = "inline-block";
             } else if (s === "failed") {
-                statusElement.innerText = "❌ Secure connection failed";
+                statusElement.innerText = "Secure connection failed";
             } else if (s === "disconnected") {
-                statusElement.innerText = "⚠️ Connection interrupted";
+                statusElement.innerText = "Connection interrupted";
             }
         };
 
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
-        statusElement.innerText = "📡 Receiving secure call offer...";
+        statusElement.innerText = "Receiving secure call offer...";
         const response = await fetch(`/api/call/${acceptedId}`, { cache: "no-store" });
         const callData = await response.json();
         if (!response.ok || !callData.offer) throw new Error(callData.error || "Call offer unavailable");
@@ -300,7 +301,7 @@ async function acceptCall() {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
-        statusElement.innerText = "📡 Finalizing secure connection...";
+        statusElement.innerText = "Finalizing secure connection...";
         await waitForIceGatheringComplete();
 
         const answerResponse = await fetch(`/api/call/${acceptedId}/answer`, {
@@ -314,12 +315,12 @@ async function acceptCall() {
             throw new Error(answerData.error || `Answer rejected (${answerResponse.status})`);
         }
         answerSent = true;
-        statusElement.innerText = "🔄 Connecting secure audio...";
+        statusElement.innerText = "Connecting secure audio...";
     } catch (error) {
         console.error("TAGVEE accept error:", error);
         try { await fetch(`/api/call/${acceptedId}/end`, { method: "POST" }); } catch (_) {}
         cleanupCall();
-        statusElement.innerText = "❌ Could not connect the call.";
+        statusElement.innerText = "Could not connect the call.";
     }
 }
 
