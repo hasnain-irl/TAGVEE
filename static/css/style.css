@@ -2474,3 +2474,104 @@ textarea:focus-visible {
         line-height: 1.8;
     }
 }
+
+
+/* =========================================================
+   TAGVEE PUBLIC PAGES — MOBILE ALIGNMENT REFINEMENT
+   Scoped to the public QR page and emergency-contact page.
+========================================================= */
+@media (max-width: 600px) {
+    /* Keep the vehicle icon and title visually grouped on narrow screens. */
+    .public-header h1 {
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.16;
+        text-align: center;
+    }
+
+    .public-header h1 > .icon {
+        margin: 0;
+        width: 30px;
+        height: 30px;
+    }
+
+    .public-header p {
+        max-width: 34rem;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 4px;
+        padding-right: 4px;
+        line-height: 1.55;
+        text-align: center;
+        overflow-wrap: break-word;
+    }
+
+    /* Give the emergency-contact choices consistent spacing and sizing. */
+    .emergency-contact-card form {
+        width: 100%;
+        max-width: 440px;
+        margin: 0 auto 10px;
+    }
+
+    .emergency-contact-card form:last-of-type {
+        margin-bottom: 0;
+    }
+
+    .emergency-contact-card form .public-btn {
+        display: flex;
+        width: 100%;
+        min-width: 0;
+        min-height: 50px;
+        box-sizing: border-box;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border: 1px solid #1d4ed8;
+        border-radius: 10px;
+        appearance: none;
+        -webkit-appearance: none;
+        white-space: normal;
+        text-align: center;
+        line-height: 1.35;
+        overflow-wrap: anywhere;
+    }
+
+    .emergency-contact-card form .public-btn > .icon {
+        flex: 0 0 18px;
+        width: 18px;
+        height: 18px;
+        margin: 0;
+    }
+
+    .emergency-contact-card .back-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        max-width: 100%;
+        line-height: 1.4;
+        text-align: center;
+    }
+}
+
+@media (max-width: 360px) {
+    .public-header h1 {
+        font-size: 1.55rem;
+    }
+
+    .public-card {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .emergency-contact-card form .public-btn {
+        padding-left: 10px;
+        padding-right: 10px;
+        font-size: 0.9rem;
+    }
+}
